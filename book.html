@@ -1,6 +1,52 @@
 <!doctype html>
 <html lang="fr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Book - Books Gate</title><link rel="stylesheet" href="styles.css"></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Book - Books Gate</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* Correctif V2.1 : photos plus nettes + codes-barres */
+.product-img{
+  height:220px !important;
+  aspect-ratio:auto !important;
+  background:#fff !important;
+  display:grid !important;
+  place-items:center !important;
+  overflow:hidden !important;
+  padding:18px !important;
+}
+.product-img img{
+  width:auto !important;
+  height:auto !important;
+  max-width:180px !important;
+  max-height:180px !important;
+  object-fit:contain !important;
+}
+.barcode-box{
+  margin-top:14px;
+  padding-top:12px;
+  border-top:1px solid #edf1ef;
+  background:#fff;
+  overflow:hidden;
+}
+.barcode-svg{
+  display:block;
+  width:100%;
+  max-width:220px;
+  height:auto;
+  margin:0 auto;
+}
+.barcode-fallback{
+  border:1px dashed #cfdcd4;
+  border-radius:8px;
+  padding:8px;
+  text-align:center;
+  font-family:monospace;
+  font-size:12px;
+}
+</style>
+</head>
 <body>
 <header class="topbar"><div class="container topbar-inner">
   <a class="brand" href="index.html"><div class="logo">BG</div><div><div class="brand-title">BOOKS GATE</div><div class="brand-sub">Vos books magasins au même endroit</div></div></a>
@@ -8,7 +54,7 @@
   <a class="admin-link" href="admin.html">Admin</a>
 </div></header>
 <main class="container"><div id="configNotice"></div><div id="bookContent"><div class="empty">Chargement du book…</div></div></main>
-<script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="common.js"></script>
+<script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script><script src="common.js"></script>
 <script>
 (async()=>{
   const id=qs("id"), root=document.getElementById("bookContent");
@@ -44,9 +90,28 @@
           <div class="product-body">
             <div class="row" style="justify-content:space-between;align-items:flex-start"><div class="product-name">${escapeHtml(p.label||"Produit")}</div>${r.rank?`<span class="pill">${escapeHtml(r.rank)}</span>`:""}</div>
             <div class="product-info">EAN : ${escapeHtml(p.ean||"—")}<br>IFLS : ${escapeHtml(p.ifls||"—")}<br>${r.families?.name?`Famille : ${escapeHtml(r.families.name)}<br>`:""}${r.assortment_code?`Tronc : ${escapeHtml(r.assortment_code)}`:""}</div>
+            <div class="barcode-box"><svg class="barcode-svg" data-ean="${escapeHtml(p.ean||"")}"></svg></div>
           </div>
         </article>`}).join("")}
     </section>`;
+
+  document.querySelectorAll(".barcode-svg").forEach(svg=>{
+    const ean=(svg.dataset.ean||"").replace(/\s+/g,"");
+    if(!ean) return;
+    try{
+      JsBarcode(svg,ean,{
+        format:/^\d{13}$/.test(ean)?"EAN13":"CODE128",
+        displayValue:true,
+        fontSize:11,
+        height:38,
+        margin:3,
+        background:"#ffffff",
+        lineColor:"#111111"
+      });
+    }catch(err){
+      svg.outerHTML=`<div class="barcode-fallback">${escapeHtml(ean)}</div>`;
+    }
+  });
 
   document.getElementById("searchProducts").addEventListener("input",e=>{
     const q=e.target.value.toLowerCase().trim();
