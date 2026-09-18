@@ -1,1 +1,70 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin - Books Gate</title><link rel="stylesheet" href="styles.css"></head><body><header class="topbar"><div class="container topbar-inner"><a class="brand" href="index.html"><div class="logo">BG</div><div><div class="brand-title">BOOKS GATE</div><div class="brand-sub">Administration</div></div></a><div></div><a class="admin-link" href="index.html">Retour au site</a></div></header><main class="container"><div class="login-wrap"><div id="n"></div><section class="login-card" id="login"><h1>Connexion Admin</h1><form id="f"><div class="field"><label>E-mail</label><input id="email" type="email" required></div><div class="field"><label>Mot de passe</label><input id="pwd" type="password" required></div><button class="btn btn-primary" style="width:100%">Se connecter</button><div id="m"></div></form></section><section class="login-card" id="panel" style="display:none"><h1>Administration</h1><p class="meta">Connexion réussie. Prochaine étape : importer un book Excel.</p><button class="btn btn-primary" disabled>+ Ajouter un book</button> <button class="btn" id="out">Se déconnecter</button></section></div></main><script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="common.js"></script><script>(async()=>{if(notice(document.getElementById("n")))return;const l=document.getElementById("login"),p=document.getElementById("panel"),m=document.getElementById("m");async function refresh(){const{data:{session}}=await supabaseClient.auth.getSession();if(!session){l.style.display="";p.style.display="none";return}const{data}=await supabaseClient.from("admin_users").select("user_id").eq("user_id",session.user.id);if(data&&data.length){l.style.display="none";p.style.display=""}else{await supabaseClient.auth.signOut();m.textContent="Ce compte n’est pas administrateur."}}document.getElementById("f").onsubmit=async e=>{e.preventDefault();const{error}=await supabaseClient.auth.signInWithPassword({email:email.value.trim(),password:pwd.value});m.textContent=error?error.message:"";if(!error)refresh()};document.getElementById("out").onclick=async()=>{await supabaseClient.auth.signOut();refresh()};refresh()})();</script></body></html>
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Administration - Books Gate</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<header class="topbar"><div class="container topbar-inner">
+  <a class="brand" href="index.html"><div class="logo">BG</div><div><div class="brand-title">BOOKS GATE</div><div class="brand-sub">Administration</div></div></a>
+  <div></div><a class="admin-link" href="index.html">Retour au site</a>
+</div></header>
+
+<main class="container">
+  <div id="configNotice"></div>
+
+  <div class="login-wrap" id="loginWrap">
+    <section class="login-card">
+      <h1 style="margin-top:0">Connexion Admin</h1><p class="meta">Connecte-toi avec ton compte administrateur Supabase.</p>
+      <form id="loginForm">
+        <div class="field"><label>Adresse e-mail</label><input id="email" type="email" required></div>
+        <div class="field"><label>Mot de passe</label><input id="password" type="password" required></div>
+        <button class="btn btn-primary" style="width:100%">Se connecter</button><div id="loginMessage"></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="admin-shell" id="adminShell" style="display:none">
+    <section class="admin-card">
+      <div class="admin-head">
+        <div><h1 style="margin:0">Ajouter un book</h1><p class="meta">Dépose ton fichier Excel. Books Gate lit automatiquement les références, familles, rangs, TAN/TAC et les photos intégrées.</p></div>
+        <div class="row"><button class="btn btn-secondary" id="logoutBtn">Se déconnecter</button></div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field"><label>Magasins</label><select id="storeGroup"><option>TMB 70</option><option>TMB 63</option></select></div>
+        <div class="field"><label>Nom du book</label><input id="bookTitle" placeholder="Ex. Grignotage sucré salé"></div>
+        <div class="field"><label>Année</label><input id="bookYear" type="number" min="2020" max="2100" value="2026"></div>
+      </div>
+
+      <div class="upload-box">
+        <strong>Fichier Excel du book</strong><p class="meta">Format accepté : .xlsx</p>
+        <input id="excelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        <div style="margin-top:14px"><button class="btn btn-primary" id="analyzeBtn">Analyser le fichier</button></div>
+      </div>
+
+      <div id="analysisMessage"></div>
+      <div id="preview" style="display:none">
+        <div class="preview-kpis" id="previewKpis"></div>
+        <div class="panel" style="box-shadow:none;margin-top:14px">
+          <h3>Familles détectées</h3><div class="chips" id="familyChips"></div>
+        </div>
+        <div class="panel" style="box-shadow:none;margin-top:14px;overflow:auto">
+          <h3>Aperçu des premières références</h3>
+          <table class="preview-table"><thead><tr><th>Photo</th><th>Libellé</th><th>EAN</th><th>Rang</th><th>IFLS</th><th>Tronc</th><th>Famille</th></tr></thead><tbody id="previewRows"></tbody></table>
+        </div>
+        <div class="progress-wrap" id="progressWrap" style="display:none"><div class="progress"><span id="progressBar"></span></div><div class="progress-text" id="progressText"></div></div>
+        <div class="row" style="margin-top:18px"><button class="btn btn-primary" id="publishBtn">Publier le book</button><span class="meta">Il apparaîtra immédiatement sur le site avec le badge NOUVEAU pendant 7 jours.</span></div>
+      </div>
+    </section>
+
+    <section class="admin-card">
+      <div class="section-head" style="margin-top:0"><div><h2>Books existants</h2><p>Tu peux supprimer un ancien book pour faire de la place.</p></div></div>
+      <div id="adminBooks" class="admin-books"><div class="empty">Chargement…</div></div>
+    </section>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="common.js"></script>
+<script src="admin-import.js"></script>
+</body></html>

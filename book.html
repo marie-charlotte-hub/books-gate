@@ -1,1 +1,57 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Book - Books Gate</title><link rel="stylesheet" href="styles.css"></head><body><header class="topbar"><div class="container topbar-inner"><a class="brand" href="index.html"><div class="logo">BG</div><div><div class="brand-title">BOOKS GATE</div><div class="brand-sub">Vos books magasins au même endroit</div></div></a><div class="search">🔎 <input id="q" placeholder="Rechercher un produit..."></div><a class="admin-link" href="admin.html">Admin</a></div></header><main class="container"><div id="n"></div><div id="root"><div class="empty">Chargement…</div></div></main><script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="common.js"></script><script>(async()=>{if(notice(document.getElementById("n")))return;const id=qs("id");const{data:b}=await supabaseClient.from("books").select("*").eq("id",id).eq("is_published",true).single();if(!b){document.getElementById("root").innerHTML='<div class="empty">Book introuvable.</div>';return}const[{data:f},{data:r}]=await Promise.all([supabaseClient.from("families").select("*").eq("book_id",id).order("sort_order"),supabaseClient.from("book_products").select("id,rank,assortment_code,sort_order,products(id,ean,label,ifls,image_path),families(id,name)").eq("book_id",id).order("sort_order")]);const rows=r||[],counts={};rows.forEach(x=>counts[x.rank||"—"]=(counts[x.rank||"—"]||0)+1);const max=Math.max(1,...Object.values(counts));document.getElementById("root").innerHTML=`<div class="page-title"><h1>${esc(b.title)} ${isNew(b.published_at)?'<span class="pill">NOUVEAU</span>':""}</h1><p class="meta">${esc(b.store_group)} • ${b.year} • ${rows.length} références</p></div><section class="summary-grid"><article class="panel"><h3>Répartition des rangs</h3>${Object.entries(counts).sort().map(([k,v])=>`<div class="rank-row"><b>${esc(k)}</b><div class="bar"><span style="width:${Math.max(7,v/max*100)}%"></span></div><span>${v}</span></div>`).join("")}</article><article class="panel"><h3>Familles du book</h3><div class="chips">${(f||[]).map(x=>`<span class="chip">${esc(x.name)}</span>`).join("")}</div></article></section><div class="section-head"><div><h2>Produits du book</h2><p>${rows.length} références</p></div></div><section class="product-grid" id="pg">${rows.map(x=>{const p=x.products||{},url=p.image_path?`${cfg.SUPABASE_URL}/storage/v1/object/public/product-images/${encodeURI(p.image_path)}`:"";return`<article class="product-card"><div class="product-img">${url?`<img src="${url}" alt="">`:"IMG"}</div><div class="product-body"><div class="product-name">${esc(p.label||"Produit")} ${x.rank?`<span class="pill">${esc(x.rank)}</span>`:""}</div><div class="product-info">EAN : ${esc(p.ean||"—")}<br>IFLS : ${esc(p.ifls||"—")}<br>${x.families?.name?`Famille : ${esc(x.families.name)}`:""}</div></div></article>`}).join("")}</section>`;document.getElementById("q").oninput=e=>[...document.querySelectorAll(".product-card")].forEach(c=>c.style.display=c.innerText.toLowerCase().includes(e.target.value.toLowerCase())?"":"none")})();</script></body></html>
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Book - Books Gate</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<header class="topbar"><div class="container topbar-inner">
+  <a class="brand" href="index.html"><div class="logo">BG</div><div><div class="brand-title">BOOKS GATE</div><div class="brand-sub">Vos books magasins au même endroit</div></div></a>
+  <div class="search">🔎 <input id="searchProducts" placeholder="Rechercher un produit..."></div>
+  <a class="admin-link" href="admin.html">Admin</a>
+</div></header>
+<main class="container"><div id="configNotice"></div><div id="bookContent"><div class="empty">Chargement du book…</div></div></main>
+<script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="common.js"></script>
+<script>
+(async()=>{
+  const id=qs("id"), root=document.getElementById("bookContent");
+  if(!id){root.innerHTML='<div class="empty">Book introuvable.</div>';return}
+  if(showConfigNotice(document.getElementById("configNotice"))) return;
+
+  const {data:book,error}=await supabaseClient.from("books").select("*").eq("id",id).eq("is_published",true).single();
+  if(error||!book){root.innerHTML='<div class="empty">Ce book n’existe pas ou n’est pas publié.</div>';return}
+
+  const [{data:families},{data:rows,error:rowsError}]=await Promise.all([
+    supabaseClient.from("families").select("id,name,sort_order").eq("book_id",id).order("sort_order"),
+    supabaseClient.from("book_products").select("id,rank,assortment_code,sort_order,products(id,ean,label,ifls,image_path),families(id,name)").eq("book_id",id).order("sort_order")
+  ]);
+  if(rowsError){root.innerHTML='<div class="empty">Impossible de charger les produits.</div>';return}
+
+  const products=rows||[], ranks={}, assort={TAN:0,TAC:0};
+  products.forEach(r=>{ranks[r.rank||"—"]=(ranks[r.rank||"—"]||0)+1;if(r.assortment_code)assort[r.assortment_code]=(assort[r.assortment_code]||0)+1});
+  const maxRank=Math.max(1,...Object.values(ranks));
+
+  root.innerHTML=`
+    <div class="breadcrumb"><a href="index.html">Accueil</a> / <a href="group.html?group=${encodeURIComponent(book.store_group)}">${escapeHtml(book.store_group)}</a> / ${escapeHtml(book.title)}</div>
+    <div class="page-title"><div><div class="row"><h1>${escapeHtml(book.title)}</h1>${isNew(book.published_at)?'<span class="pill">NOUVEAU</span>':""}</div><div class="sub">${escapeHtml(book.store_group)} • ${book.year} • ${products.length} références</div></div></div>
+    <section class="summary-grid">
+      <article class="panel"><h3>Répartition des rangs</h3><div class="rank-bars">${Object.entries(ranks).sort().map(([rank,count])=>`<div class="rank-row"><strong>${escapeHtml(rank)}</strong><div class="bar"><span style="width:${Math.max(7,count/maxRank*100)}%"></span></div><span>${count}</span></div>`).join("")}</div></article>
+      <article class="panel"><h3>Familles du book</h3><div class="chips">${(families||[]).map(f=>`<span class="chip">${escapeHtml(f.name)}</span>`).join("")}</div></article>
+      <article class="panel"><h3>Tronc d'assortiment</h3><div class="rank-bars"><div class="rank-row"><strong>TAN</strong><div class="bar"><span style="width:${products.length?assort.TAN/products.length*100:0}%"></span></div><span>${assort.TAN}</span></div><div class="rank-row"><strong>TAC</strong><div class="bar"><span style="width:${products.length?assort.TAC/products.length*100:0}%"></span></div><span>${assort.TAC}</span></div></div></article>
+    </section>
+    <div class="section-head"><div><h2>Produits du book</h2><p>${products.length} références</p></div></div>
+    <section class="product-grid" id="productGrid">
+      ${products.map(r=>{const p=r.products||{},url=p.image_path?storagePublicUrl(p.image_path):"";return`
+        <article class="product-card">
+          <div class="product-img">${url?`<img src="${url}" alt="">`:'<div class="product-placeholder">IMG</div>'}</div>
+          <div class="product-body">
+            <div class="row" style="justify-content:space-between;align-items:flex-start"><div class="product-name">${escapeHtml(p.label||"Produit")}</div>${r.rank?`<span class="pill">${escapeHtml(r.rank)}</span>`:""}</div>
+            <div class="product-info">EAN : ${escapeHtml(p.ean||"—")}<br>IFLS : ${escapeHtml(p.ifls||"—")}<br>${r.families?.name?`Famille : ${escapeHtml(r.families.name)}<br>`:""}${r.assortment_code?`Tronc : ${escapeHtml(r.assortment_code)}`:""}</div>
+          </div>
+        </article>`}).join("")}
+    </section>`;
+
+  document.getElementById("searchProducts").addEventListener("input",e=>{
+    const q=e.target.value.toLowerCase().trim();
+    [...document.querySelectorAll(".product-card")].forEach(c=>c.style.display=c.innerText.toLowerCase().includes(q)?"":"none");
+  });
+})();
+</script>
+</body></html>
